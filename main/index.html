@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>rccar</title>
+<style>
+  :root {
+    --bg: #0b0d10; --fg: #e6edf3; --dim: #6b7684; --line: #1f242b;
+    --ok: #39d353; --warn: #f0883e; --bad: #f85149;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; height: 100%; background: var(--bg); color: var(--fg);
+    font: 13px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace;
+    overscroll-behavior: none; touch-action: none; user-select: none;
+  }
+  body { display: flex; flex-direction: column; }
+  header {
+    display: flex; align-items: center; gap: 16px;
+    padding: 8px 12px; border-bottom: 1px solid var(--line);
+  }
+  header .title { font-weight: 700; letter-spacing: .08em; }
+  header .spacer { flex: 1; }
+  .chip {
+    padding: 2px 8px; border: 1px solid var(--line); border-radius: 4px;
+    color: var(--dim);
+  }
+  .chip b { color: var(--fg); font-weight: 600; }
+  #link.on { color: var(--ok); border-color: var(--ok); }
+  #arm.armed { color: #0b0d10; background: var(--warn); border-color: var(--warn); }
+  main {
+    flex: 1; display: grid; grid-template-columns: 1fr 200px; gap: 12px;
+    padding: 12px; min-height: 0;
+  }
+  #pad {
+    position: relative; border: 1px solid var(--line); border-radius: 8px;
+    background:
+      linear-gradient(var(--line) 1px, transparent 1px) 0 50% / 100% 1px no-repeat,
+      linear-gradient(90deg, var(--line) 1px, transparent 1px) 50% 0 / 1px 100% no-repeat;
+    overflow: hidden; cursor: crosshair;
+  }
+  #knob {
+    position: absolute; width: 56px; height: 56px; margin: -28px 0 0 -28px;
+    left: 50%; top: 50%; border: 1px solid var(--dim); border-radius: 50%;
+    background: rgba(57, 211, 83, .12); pointer-events: none;
+  }
+  #pad.armed #knob { border-color: var(--warn); background: rgba(240, 136, 62, .12); }
+  aside { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+  .row { display: flex; justify-content: space-between; gap: 8px; }
+  .row span:first-child { color: var(--dim); }
+  .row output { font-variant-numeric: tabular-nums; }
+  button {
+    font: inherit; padding: 10px; background: transparent; color: var(--fg);
+    border: 1px solid var(--line); border-radius: 6px; cursor: pointer;
+  }
+  button:active { background: var(--line); }
+  #arm { border-color: var(--warn); color: var(--warn); font-weight: 700; }
+  #arm.armed { color: #0b0d10; }
+  .hint { color: var(--dim); font-size: 12px; line-height: 1.6; }
+  @media (max-width: 640px) {
+    main { grid-template-columns: 1fr; grid-template-rows: 1fr auto; }
+    aside { flex-direction: row; flex-wrap: wrap; align-items: center; }
+    aside .row { flex-direction: column; gap: 0; }
+    .hint { display: none; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <span class="title">RCCAR</span>
+  <span id="link" class="chip">link <b>--</b></span>
+  <span class="spacer"></span>
+  <span id="vbat" class="chip">vbat <b>--</b></span>
+  <button id="arm" type="button">ARM</button>
+</header>
+<main>
+  <div id="pad" aria-label="drive pad"><div id="knob"></div></div>
+  <aside>
+    <div class="row"><span>throttle</span><output id="t">0.00</output></div>
+    <div class="row"><span>steering</span><output id="s">0.00</output></div>
+    <div class="row"><span>vbat</span><output id="v">--</output></div>
+    <div class="hint">
+      drag = throttle + steering<br>
+      W/S throttle, A/D steer<br>
+      space = stop, release = coast
+    </div>
+  </aside>
+</main>
+<script>
+(() => {
+  const pad = document.getElementById('pad');
+  const knob = document.getElementById('knob');
+  const outT = document.getElementById('t');
+  const outS = document.getElementById('s');
+  const outV = document.getElementById('v');
+  const link = document.getElementById('link');
+  const vbat = document.getElementById('vbat');
+  const armBtn = document.getElementById('arm');
+
+  const state = { t: 0, s: 0, arm: false };
+  let ws = null;
+  let connected = false;
+  let dragging = false;
+  let dirty = true;
+
+  function render() {
+    knob.style.left = `calc(50% + ${state.s * 42}%)`;
+    knob.style.top = `calc(50% - ${state.t * 42}%)`;
+    outT.textContent = state.t.toFixed(2);
+    outS.textContent = state.s.toFixed(2);
+    pad.classList.toggle('armed', state.arm);
+  }
+
+  function setArm(on) {
+    state.arm = on;
+    if (!on) state.t = 0;
+    armBtn.textContent = on ? 'DISARM' : 'ARM';
+    armBtn.classList.toggle('armed', on);
+    dirty = true;
+    render();
+  }
+
+  function norm(e) {
+    const r = pad.getBoundingClientRect();
+    let x = ((e.clientX - r.left) / r.width) * 2 - 1;
+    let y = ((e.clientY - r.top) / r.height) * 2 - 1;
+    x = Math.max(-1, Math.min(1, x));
+    y = Math.max(-1, Math.min(1, y));
+    const dz = 0.08;
+    state.s = Math.abs(x) < dz ? 0 : x;
+    state.t = Math.abs(y) < dz ? 0 : -y;
+    dirty = true;
+    render();
+  }
+
+  pad.addEventListener('pointerdown', e => {
+    dragging = true;
+    pad.setPointerCapture(e.pointerId);
+    norm(e);
+  });
+  pad.addEventListener('pointermove', e => { if (dragging) norm(e); });
+  pad.addEventListener('pointerup', () => { dragging = false; state.t = 0; state.s = 0; dirty = true; render(); });
+  pad.addEventListener('pointercancel', () => { dragging = false; state.t = 0; state.s = 0; render(); });
+
+  const keys = new Set();
+  const map = { KeyW: 'up', KeyS: 'down', KeyA: 'left', KeyD: 'right', ArrowUp: 'up', ArrowDown: 'down', ArrowLeft: 'left', ArrowRight: 'right' };
+
+  function fromKeys() {
+    let t = (keys.has('up') ? 1 : 0) - (keys.has('down') ? 1 : 0);
+    let s = (keys.has('right') ? 1 : 0) - (keys.has('left') ? 1 : 0);
+    state.t = t;
+    state.s = s;
+    dirty = true;
+    render();
+  }
+
+  addEventListener('keydown', e => {
+    if (e.code === 'Space') { state.t = 0; state.s = 0; dirty = true; render(); e.preventDefault(); return; }
+    if (map[e.code]) { keys.add(map[e.code]); fromKeys(); e.preventDefault(); }
+  });
+  addEventListener('keyup', e => {
+    if (map[e.code]) { keys.delete(map[e.code]); fromKeys(); e.preventDefault(); }
+  });
+
+  armBtn.addEventListener('click', () => setArm(!state.arm));
+
+  function send() {
+    if (!ws || ws.readyState !== WebSocket.OPEN || !dirty) return;
+    dirty = false;
+    ws.send(JSON.stringify({ t: state.t, s: state.s, a: state.arm ? 1 : 0 }));
+  }
+
+  function connect() {
+    ws = new WebSocket(`ws://${location.host}/ws`);
+    ws.onopen = () => {
+      connected = true;
+      link.classList.add('on');
+      link.innerHTML = 'link <b>up</b>';
+      setArm(false);
+      dirty = true;
+    };
+    ws.onclose = () => {
+      connected = false;
+      setArm(false);
+      link.classList.remove('on');
+      link.innerHTML = 'link <b>down</b>';
+      setTimeout(connect, 1000);
+    };
+    ws.onmessage = e => {
+      let d;
+      try { d = JSON.parse(e.data); } catch { return; }
+      if (typeof d.vbat === 'number') {
+        const v = d.vbat.toFixed(2) + ' V';
+        outV.textContent = v;
+        vbat.innerHTML = `vbat <b>${v}</b>`;
+      }
+    };
+  }
+
+  // Heartbeat keeps the firmware failsafe satisfied; 0.2 s of silence stops the car.
+  setInterval(send, 50);
+  setInterval(() => { dirty = true; }, 200);
+
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) { setArm(false); dirty = true; send(); }
+  });
+
+  render();
+  connect();
+})();
+</script>
+</body>
+</html>
