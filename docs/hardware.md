@@ -13,6 +13,14 @@ A small-scale (roughly 1/16) plastic monster-truck chassis:
 So this is a rolling chassis that needs a full electronics retrofit. Confirm
 the scale, motor can size and connector pinout before ordering parts.
 
+![Chassis layout](images/layout.png)
+
+Proposed placement: battery centered and low, H-bridge next to the motor,
+ESP32 forward with the antenna away from the power leads.
+
+All diagrams are generated from `tools/diagrams.py` (`python3 tools/diagrams.py`),
+so labels and wiring can be fixed in one place.
+
 ## What the ESP32-C3 can and cannot do
 
 From the ESP32-C3 datasheet and ESP-IDF 5.5 docs:
@@ -43,6 +51,8 @@ DualShock 4 will not pair (BLE gamepads and ESP-NOW will).
 | Status LED | 8 | GPIO out | onboard, active low, strapping |
 | I2C SDA/SCL | 6/7 | reserved | IMU later, JTAG pins |
 
+![ESP32-C3 SuperMini pin map](images/pinout.png)
+
 ## Bill of materials
 
 | Part | Choice | Why |
@@ -62,6 +72,8 @@ Avoid the L298N: about 2 V drop, slow switching, bulky. Use it only if it is
 already in a drawer and the car is a bench test.
 
 ## Wiring
+
+![Wiring diagram](images/wiring.png)
 
 ```mermaid
 flowchart LR

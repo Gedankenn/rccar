@@ -24,6 +24,14 @@ docs/
   design.md     scope, decisions, open questions
 ```
 
+## Hardware pictures
+
+- [Wiring](docs/images/wiring.png): power, ground and signal nets with pin names.
+- [Pin map](docs/images/pinout.png): every SuperMini pin and what it does here.
+- [Layout](docs/images/layout.png): where the parts go on the chassis.
+
+Edit `tools/diagrams.py` and rerun it to regenerate the SVG and PNG versions.
+
 ## Build
 
 ESP-IDF v5.5, target `esp32c3`, 4 MB flash. Docker keeps the host clean:
