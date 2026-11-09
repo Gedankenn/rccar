@@ -28,6 +28,7 @@ static const char *TAG = "web";
 static httpd_handle_t s_server;
 static atomic_uint s_last_cmd_ms;
 static atomic_bool s_armed;
+static atomic_bool s_locked;
 static float s_throttle;
 static float s_steering;
 
@@ -46,6 +47,17 @@ void web_disarm(void)
     atomic_store(&s_armed, false);
 }
 
+void web_lock(void)
+{
+    atomic_store(&s_locked, true);
+    atomic_store(&s_armed, false);
+}
+
+bool web_locked(void)
+{
+    return atomic_load(&s_locked);
+}
+
 static float clampf(float v)
 {
     return v < -1.0f ? -1.0f : (v > 1.0f ? 1.0f : v);
@@ -55,9 +67,9 @@ static void send_status(httpd_req_t *req)
 {
     char buf[160];
     snprintf(buf, sizeof(buf),
-             "{\"vbat\":%.2f,\"t\":%.2f,\"s\":%.2f,\"arm\":%d,\"rssi\":%d}",
+             "{\"vbat\":%.2f,\"t\":%.2f,\"s\":%.2f,\"arm\":%d,\"lock\":%d}",
              battery_read(), s_throttle, s_steering,
-             atomic_load(&s_armed) ? 1 : 0, 0);
+             atomic_load(&s_armed) ? 1 : 0, atomic_load(&s_locked) ? 1 : 0);
 
     httpd_ws_frame_t frame = {
         .type = HTTPD_WS_TYPE_TEXT,
@@ -87,6 +99,9 @@ static void apply_command(const char *text, size_t len, httpd_req_t *req)
     }
     if (cJSON_IsBool(a) || cJSON_IsNumber(a)) {
         bool want = cJSON_IsBool(a) ? cJSON_IsTrue(a) : a->valuedouble != 0.0;
+        if (atomic_load(&s_locked)) {
+            want = false; /* low-voltage latch survives until reboot */
+        }
         atomic_store(&s_armed, want);
         if (!want) {
             s_throttle = 0.0f;
@@ -150,9 +165,10 @@ static esp_err_t api_status_handler(httpd_req_t *req)
 {
     char buf[160];
     snprintf(buf, sizeof(buf),
-             "{\"vbat\":%.2f,\"t\":%.2f,\"s\":%.2f,\"arm\":%d,\"lost\":%d}",
+             "{\"vbat\":%.2f,\"t\":%.2f,\"s\":%.2f,\"arm\":%d,\"lost\":%d,\"lock\":%d}",
              battery_read(), s_throttle, s_steering,
-             atomic_load(&s_armed) ? 1 : 0, web_link_lost() ? 1 : 0);
+             atomic_load(&s_armed) ? 1 : 0, web_link_lost() ? 1 : 0,
+             atomic_load(&s_locked) ? 1 : 0);
     httpd_resp_set_type(req, "application/json");
     return httpd_resp_sendstr(req, buf);
 }
@@ -190,6 +206,7 @@ void web_start(void)
 {
     atomic_store(&s_last_cmd_ms, now_ms());
     atomic_store(&s_armed, false);
+    atomic_store(&s_locked, false);
 
     wifi_start();
 

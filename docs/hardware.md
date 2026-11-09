@@ -49,10 +49,10 @@ DualShock 4 will not pair (BLE gamepads and ESP-NOW will).
 |---|---|---|
 | MCU board | ESP32-C3 SuperMini | already chosen; 4 MB flash, USB-JTAG |
 | Motor driver | TB6612FNG breakout | dual H-bridge, 1.2 A cont / 3.2 A peak, 2.7-13.5 V, 3.3 V logic |
-| Motor driver (alt) | DRV8871 breakout | single channel, 3.6 A peak, better for a hot 260/370 motor |
-| Steering servo | MG90S or SG90 | 9 g class; metal gears if the linkage is stiff |
+| Motor driver (alt) | DRV8251A or DRV8871 breakout | 4.1 A / 3.6 A peak for a hot 260/370 motor |
+| Steering servo | existing unit | confirm 4.8-6 V rated; power it from 5 V, not 3.3 V |
 | 5 V rail | MP1584EN or Pololu D24V22F5 buck | servo + ESP32; 2-3 A |
-| Battery | 2S Li-ion 18650 pack (7.4 V) or the stock pack | check what the chassis was designed for |
+| Battery | 2S Li-ion 18650 pack (7.4 V) | chosen; needs a 2S BMS and balance charger |
 | Bulk cap | 470-1000 uF low-ESR on VM | absorbs motor stall transients |
 | Servo connector | 3-pin 2.54 mm | 5 V / GND / signal |
 | Switch | inline battery switch | bench safety |
@@ -85,6 +85,8 @@ Details:
   2.68 V, inside the ADC range.
 - Snubber cap across the motor terminals (100 nF) reduces brush noise.
 - Keep motor wires away from the antenna end of the SuperMini.
+- Firmware treats 6.4 V (5 consecutive 1 s samples) as empty and latches the
+  drive off. Adjust `VBAT_CUTOFF_V` if the pack is not Li-ion.
 
 ## Power budget (estimate, measure before trusting)
 

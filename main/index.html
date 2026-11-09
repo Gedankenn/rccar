@@ -55,6 +55,7 @@
     border: 1px solid var(--line); border-radius: 6px; cursor: pointer;
   }
   button:active { background: var(--line); }
+  button:disabled { opacity: .6; cursor: not-allowed; }
   #arm { border-color: var(--warn); color: var(--warn); font-weight: 700; }
   #arm.armed { color: #0b0d10; }
   .hint { color: var(--dim); font-size: 12px; line-height: 1.6; }
@@ -194,6 +195,12 @@
         const v = d.vbat.toFixed(2) + ' V';
         outV.textContent = v;
         vbat.innerHTML = `vbat <b>${v}</b>`;
+      }
+      if (d.lock) {
+        setArm(false);
+        armBtn.disabled = true;
+        armBtn.textContent = 'LOCKED';
+        armBtn.classList.add('armed');
       }
     };
   }

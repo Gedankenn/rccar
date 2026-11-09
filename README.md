@@ -5,6 +5,8 @@ joystick, H-bridge drive, hobby servo steering, battery telemetry, and a
 400 ms failsafe.
 
 Status: firmware builds for `esp32c3`; hardware not yet wired or tested.
+Chassis plan: 2S Li-ion (7.4 V), brushed motor, existing steering servo,
+phone browser control.
 
 ## Layout
 
@@ -60,12 +62,14 @@ If the port does not appear, hold BOOT (GPIO9) while plugging the cable.
 - Wheels off the ground for every flash and first test.
 - Firmware output is disarmed after every new WebSocket client and after
   400 ms without a control frame.
+- Below 6.4 V on a 2S pack the drive latches off until reboot (LED fast
+  blink, UI shows LOCKED).
 - The motor driver's STBY pin goes to 3.3 V in the current wiring plan; add a
   hardware switch in series with the battery for bench work.
 
 ## Not done yet
 
 - Hardware bring-up and current measurements (motor and servo).
-- Encoder/IMU, low-voltage cutoff, OTA, mDNS.
+- Encoder/IMU, OTA, mDNS.
 - The pin map assumes an H-bridge on GPIO3/4 and a servo on GPIO5; adjust
   `main/config.h` once the actual board and connectors are known.

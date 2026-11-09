@@ -43,13 +43,39 @@ static void led_task(void *arg)
 
     bool phase = false;
     while (true) {
-        if (s_linked) {
+        int delay_ms = 500;
+        if (web_locked()) {
+            delay_ms = 100; /* fast blink: drive latched off */
+            phase = !phase;
+            gpio_set_level(PIN_STATUS_LED, phase ? 0 : 1);
+        } else if (s_linked) {
             gpio_set_level(PIN_STATUS_LED, 0); /* solid while a client drives */
+            phase = false;
         } else {
             phase = !phase;
             gpio_set_level(PIN_STATUS_LED, phase ? 0 : 1); /* idle blink */
         }
-        vTaskDelay(pdMS_TO_TICKS(500));
+        vTaskDelay(pdMS_TO_TICKS(delay_ms));
+    }
+}
+
+static void battery_task(void *arg)
+{
+    (void)arg;
+    int low_samples = 0;
+    while (true) {
+        float volts = battery_read();
+        if (volts > 0.5f && volts < VBAT_CUTOFF_V) {
+            if (++low_samples >= VBAT_CUTOFF_COUNT) {
+                ESP_LOGE(TAG, "pack at %.2f V, locking drive", volts);
+                web_lock();
+                motor_set(0.0f);
+                low_samples = 0;
+            }
+        } else {
+            low_samples = 0;
+        }
+        vTaskDelay(pdMS_TO_TICKS(1000));
     }
 }
 
@@ -73,6 +99,7 @@ void app_main(void)
 
     xTaskCreate(failsafe_task, "failsafe", 3072, NULL, 6, NULL);
     xTaskCreate(led_task, "led", 2048, NULL, 2, NULL);
+    xTaskCreate(battery_task, "battery", 3072, NULL, 1, NULL);
 
     ESP_LOGI(TAG, "vbat %.2f V, free heap %lu", battery_read(),
              (unsigned long)esp_get_free_heap_size());

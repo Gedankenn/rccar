@@ -36,5 +36,9 @@
 /* Stop the motor if no command arrives for this long. */
 #define FAILSAFE_MS        400
 
+/* 2S Li-ion: latch the drive off below this pack voltage. */
+#define VBAT_CUTOFF_V      6.40f
+#define VBAT_CUTOFF_COUNT  5
+
 #define AP_SSID_PREFIX     "rccar"
 #define AP_PASS            "rccar1234"

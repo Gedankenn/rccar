@@ -61,23 +61,28 @@ with no client build step.
   drop stops the car. The UI sends a 20 Hz heartbeat while connected.
 - **Voltage divider 100k/47k on GPIO0.** 2S pack fits the ADC range;
   resistor values keep drain under 60 uA.
+- **Low-voltage latch at 6.4 V.** Five consecutive samples below the
+  threshold disarm the car until reboot; arming is refused in firmware, not
+  only hidden in the UI.
 - **Dockerized build.** No host-wide ESP-IDF install; the repo builds with
   one command.
 
+## Settled with the owner
+
+- Pack: 2S Li-ion, 7.4 V nominal.
+- Steering servo and linkage are already on the chassis.
+- First control link: phone browser over WiFi (what is built).
+
 ## Open questions (need the owner)
 
-1. Exact motor and pack: stock can size, winding, connector, and whether the
-   chassis was designed for 4xAA (6 V) or a 2S pack.
-2. Steering: is the servo and linkage still available, or does the servo
-   mount need to be printed/fabricated?
-3. Control preference: phone browser is the v0; is a physical RC transmitter
-   or a BLE gamepad required later?
-4. H-bridge choice: TB6612FNG is the default; go DRV8871 if the motor stalls
-   above 2 A.
+1. Exact motor: can size, winding, connector, stall current. This picks
+   TB6612FNG versus DRV8251A.
+2. Servo model and rated voltage; confirm it accepts 5 V.
+3. Is a physical RC transmitter or BLE gamepad wanted later?
 
 ## What is left to the builder
 
 - Confirm the pin map against the real SuperMini board revision.
 - Measure stall current before soldering the H-bridge.
 - Decide whether STBY gets a GPIO kill line or stays tied to 3.3 V.
-- Add low-voltage cutoff once the pack chemistry is known.
+- Add a 2S BMS and balance charger to the build.
