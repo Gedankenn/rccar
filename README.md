@@ -29,6 +29,7 @@ docs/
 - [Wiring](docs/images/wiring.png): power, ground and signal nets with pin names.
 - [Pin map](docs/images/pinout.png): every SuperMini pin and what it does here.
 - [Layout](docs/images/layout.png): where the parts go on the chassis.
+- [BOM](docs/images/bom.png): shopping list with quantities, specs and status.
 
 Edit `tools/diagrams.py` and rerun it to regenerate the SVG and PNG versions.
 

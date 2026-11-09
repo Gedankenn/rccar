@@ -164,6 +164,18 @@ class Svg:
         self.add(f'<path d="M {x1} {y1} L {x2:.2f} {y2:.2f} L {x3:.3f} {y3:.2f} Z" '
                  f'fill="{color}" stroke="none"/>')
 
+    def line(self, x1, y1, x2, y2, stroke=TX, sw=2, dash=None):
+        d = f' stroke-dasharray="{dash}"' if dash else ""
+        self.add(f'<line x1="{x1}" y1="{y1}" x2="{x2}" y2="{y2}" stroke="{stroke}" '
+                 f'stroke-width="{sw}" stroke-linecap="round"{d}/>')
+
+    def group(self, tx, ty, scale, fn, *args, **kw):
+        start = len(self.body)
+        fn(*args, **kw)
+        inner = "".join(self.body[start:])
+        del self.body[start:]
+        self.add(f'<g transform="translate({tx},{ty}) scale({scale})">{inner}</g>')
+
     def dot(self, x, y, color=CY, r=4):
         self.add(f'<circle cx="{x}" cy="{y}" r="{r}" fill="{color}" filter="url(#{self.f_glow()})"/>')
 
@@ -742,7 +754,197 @@ def layout():
     s.save("layout")
 
 
+
+BOM_ITEMS = [
+    ("CORE", "ESP32-C3 SUPERMINI", "x1", "BUY", "esp",
+     ["RISC-V 160 MHz · WiFi 4 + BLE 5", "4 MB flash · USB-C · 3.3 V logic"],
+     "native USB: flash + console, no adapter"),
+    ("CORE", "5 V BUCK 3 A", "x1", "BUY", "buck",
+     ["MP1584EN or D24V22F5", "2-3 A for ESP32 + servo"],
+     "servo never comes from the 3V3 rail"),
+    ("CORE", "POWER SWITCH", "x1", "BUY", "switch",
+     ["SPST toggle or rocker", "rated 10 A or more"],
+     "carries the full motor current"),
+    ("CORE", "2S LI-ION 18650 PACK", "x1", "BUY", "pack",
+     ["7.4 V nom · 8.4 V full", "with BMS and balance leads"],
+     "measure the battery bay first"),
+    ("POWER", "2S BALANCE CHARGER", "x1", "BUY", "charger",
+     ["charges two 18650 cells", "balance leads required"],
+     "do not charge in the car"),
+    ("POWER", "BULK CAPACITOR", "x1", "BUY", "capel",
+     ["470 uF / 16 V low-ESR", "across VM at the H-bridge"],
+     "absorbs motor stall transients"),
+    ("POWER", "FUSE + HOLDER", "x1", "BUY", "fuse",
+     ["5-7.5 A, above stall current", "on pack +, before the switch"],
+     "protects the pack and wiring"),
+    ("DRIVE", "H-BRIDGE TB6612FNG", "x1", "BUY", "hbridge",
+     ["1.2 A cont / 3.2 A peak", "2.7-13.5 V · 3.3 V logic"],
+     "default if stall current < 2 A"),
+    ("DRIVE", "H-BRIDGE DRV8251A", "x1", "ALT", "hbridge",
+     ["4.1 A peak · 4.5-48 V", "single channel, no logic supply"],
+     "use if the motor stalls higher"),
+    ("DRIVE", "MOTOR SNUBBER", "x1", "BUY", "capcer",
+     ["100 nF ceramic, 50 V", "solder across motor terminals"],
+     "kills brush noise on the radio"),
+    ("DRIVE", "BRUSHED MOTOR + GEARBOX", "x1", "HAVE", "motor",
+     ["already on the chassis", "measure stall current at 7.4 V"],
+     "decides the H-bridge choice"),
+    ("DRIVE", "STEERING SERVO", "x1", "HAVE", "servo",
+     ["already on the chassis", "check 4.8-6 V rating"],
+     "runs from the 5 V buck"),
+    ("WIRING", "XT30 + JST-XH SET", "set", "BUY", "jst",
+     ["XT30 for pack and motor", "JST-XH for servo and signal"],
+     "match the pack connector"),
+    ("WIRING", "SILICONE WIRE", "set", "BUY", "wire",
+     ["18 AWG motor · 22 AWG signal", "red / black / signal colors"],
+     "keep motor and signal apart"),
+    ("WIRING", "HEATSHRINK + TIES", "set", "BUY", "heat",
+     ["3-8 mm assortment", "plus small zip ties"],
+     "strain relief on every lead"),
+    ("OPTIONAL", "IMU MPU-6050 / ICM-20689", "x1", "OPT", "imu",
+     ["I2C on GPIO6 / GPIO7", "heading hold, traction data"],
+     "not needed for v0"),
+]
+
+STATUS_COLOR = {"BUY": CY, "HAVE": LM, "ALT": AM, "OPT": MG}
+STATUS_LABEL = {"BUY": "BUY", "HAVE": "HAVE", "ALT": "ALT", "OPT": "OPT"}
+
+
+def bom():
+    s = Svg(1600, 1240, "SHEET 04 // BOM")
+    s.frame()
+    s.title("RCCAR // BOM", "SHOPPING LIST  ·  2S LI-ION  ·  BRUSHED DC  ·  ESP32-C3  ·  V0")
+
+    # status legend
+    lx = 1150
+    for i, (st, label) in enumerate([("BUY", "TO BUY"), ("HAVE", "ON CHASSIS"),
+                                     ("ALT", "ALTERNATIVE"), ("OPT", "OPTIONAL")]):
+        cx = lx + i * 112
+        s.rect(cx, 52, 12, 12, fill=STATUS_COLOR[st], stroke="none", rx=2)
+        s.text(cx + 18, 63, label, size=8.5, fill=MU, family=MONO, spacing="0.8")
+
+    s.text(54, 104, "16 ITEMS  ·  12 TO BUY  ·  2 ALREADY ON THE CHASSIS  ·  1 ALT  ·  1 OPTIONAL",
+           size=9.5, fill=MU, family=MONO, spacing="1")
+
+    cw, ch = 355, 200
+    gx, gy = 20, 18
+    x0, y0 = 60, 132
+
+    for i, (cat, name, qty, status, icon, specs, note) in enumerate(BOM_ITEMS):
+        col = i % 4
+        row = i // 4
+        x = x0 + col * (cw + gx)
+        y = y0 + row * (ch + gy)
+        color = STATUS_COLOR[status]
+        s.cut(x, y, cw, ch, 10, fill=PANEL, stroke=color, sw=1.1, opacity=0.9)
+        s.bracket(x, y, cw, ch, color, 10, 1.5)
+
+        s.text(x + 16, y + 22, f"{i+1:02d}", size=9, fill=MU, family=MONO, spacing="1")
+        s.text(x + 42, y + 22, cat, size=9, fill=MU, family=MONO, spacing="1.2")
+
+        # status chip
+        chip_w = 46
+        s.rect(x + cw - chip_w - 14, y + 10, chip_w, 17, fill="none", stroke=color, rx=3, sw=1)
+        s.text(x + cw - 14 - chip_w / 2, y + 22, STATUS_LABEL[status], size=8.5, fill=color,
+               anchor="middle", family=MONO, spacing="0.8")
+
+        # icon
+        ix, iy = x + 16, y + 44
+        if icon == "esp":
+            s.group(ix + 23, iy + 1, 0.3, s.esp_board, 0, 0, 180, 320, [], [])
+        elif icon == "buck":
+            s.group(ix + 3, iy + 20, 0.36, s.buck_module, 0, 0, 260, 160, [])
+        elif icon == "switch":
+            s.group(ix + 5, iy + 28, 1.0, s.rocker, 0, 0, 90, 44)
+        elif icon == "pack":
+            s.group(ix + 2, iy + 20, 0.4, s.battery_pack, 0, 0, 240, 150)
+        elif icon == "hbridge":
+            s.group(ix + 1, iy + 7, 0.35, s.hbridge_module, 0, 0, 280, 240, [])
+        elif icon == "servo":
+            s.group(ix + 4, iy + 25, 0.42, s.servo, 0, 0, 220, 120)
+        elif icon == "motor":
+            s.group(ix + 2, iy + 32, 0.4, s.motor, 0, 0, 240, 90)
+        else:
+            draw_bom_icon(s, icon, ix, iy)
+
+        # text block
+        tx = x + 128
+        s.text(tx, y + 62, name, size=13.5, fill=TX, weight="700", family=SANS)
+        s.text(x + cw - 16, y + 62, qty, size=9.5, fill=MU, anchor="end", family=MONO)
+        for k, line in enumerate(specs):
+            s.text(tx, y + 86 + k * 15, line, size=9.5, fill=TX, family=MONO,
+                   spacing="0.3", opacity=0.88)
+        s.text(tx, y + 134, note, size=9, fill=MU, family=SANS)
+
+    s.text(54, 1090, "PRICES NOT INCLUDED  ·  VOLTAGES AND CURRENTS ARE DESIGN TARGETS, NOT MEASUREMENTS",
+           size=9, fill=MU, family=MONO, spacing="0.8")
+    s.text(54, 1112, "CONFIRM MOTOR STALL CURRENT BEFORE ORDERING THE H-BRIDGE",
+           size=9, fill=AM, family=MONO, spacing="0.8")
+    s.save("bom")
+
+
+def draw_bom_icon(s, kind, x, y):
+    if kind == "capel":  # electrolytic
+        s.rect(x + 30, y + 18, 40, 62, fill="#12202e", stroke="#3f6b86", rx=5, sw=1.2)
+        s.line(x + 30, y + 30, x + 70, y + 30, "#8fb6d0", 1.2)
+        s.add(f'<rect x="{x+56}" y="{y+20}" width="6" height="58" fill="{MG}" opacity="0.55"/>')
+        s.text(x + 50, y + 58, "+", size=14, fill=TX, anchor="middle", family=MONO)
+        s.line(x + 40, y + 80, x + 40, y + 92, GY, 2.2)
+        s.line(x + 60, y + 80, x + 60, y + 92, GY, 2.2)
+        s.text(x + 50, y + 16, "470uF", size=7.5, fill=MU, anchor="middle", family=MONO)
+    elif kind == "capcer":
+        s.line(x + 30, y + 52, x + 42, y + 52, GY, 2.2)
+        s.line(x + 42, y + 34, x + 42, y + 70, TX, 3)
+        s.line(x + 48, y + 34, x + 48, y + 70, TX, 3)
+        s.line(x + 48, y + 52, x + 60, y + 52, GY, 2.2)
+        s.text(x + 45, y + 84, "100nF", size=7.5, fill=MU, anchor="middle", family=MONO)
+    elif kind == "fuse":
+        s.add(f'<rect x="{x+16}" y="{y+40}" width="68" height="20" rx="10" '
+              f'fill="#12202e" stroke="#5b7f96" stroke-width="1.2"/>')
+        s.add(f'<rect x="{x+12}" y="{y+38}" width="10" height="24" rx="3" fill="url(#{s.grad("metal")})"/>')
+        s.add(f'<rect x="{x+78}" y="{y+38}" width="10" height="24" rx="3" fill="url(#{s.grad("metal")})"/>')
+        s.line(x + 24, y + 50, x + 76, y + 50, AM, 1.6, dash="4 3")
+        s.text(x + 50, y + 82, "5-7.5A", size=7.5, fill=MU, anchor="middle", family=MONO)
+    elif kind == "charger":
+        s.cut(x + 14, y + 22, 72, 56, 6, fill="#0b1725", stroke=CY, sw=1.1, opacity=0.95)
+        s.add(f'<rect x="{x+24}" y="{y+38}" width="34" height="20" rx="3" fill="none" '
+              f'stroke="{TX}" stroke-width="1.6"/>')
+        s.add(f'<rect x="{x+58}" y="{y+44}" width="4" height="8" fill="{TX}"/>')
+        s.add(f'<rect x="{x+27}" y="{y+41}" width="12" height="14" fill="{LM}" opacity="0.6"/>')
+        s.text(x + 68, y + 52, "2S", size=9, fill=CY, anchor="middle", family=MONO)
+        s.line(x + 50, y + 78, x + 50, y + 90, GY, 2.2)
+    elif kind == "jst":
+        for k, yy in enumerate((y + 30, y + 58)):
+            s.add(f'<rect x="{x+28}" y="{yy}" width="34" height="20" rx="3" '
+                  f'fill="#e8edf2" stroke="#9aa7b6" stroke-width="1"/>')
+            s.add(f'<rect x="{x+34}" y="{yy+6}" width="10" height="8" rx="1.5" fill="#1a2029"/>')
+            s.add(f'<rect x="{x+62}" y="{yy+6}" width="8" height="8" fill="url(#{s.grad("gold")})"/>')
+            s.wire([(x + 18, yy + 10), (x + 28, yy + 10)], RD if k == 0 else GY, 2.2, glow=False)
+    elif kind == "wire":
+        for k, (col, off) in enumerate(((RD, 0), (GY, 12), (CY, 24))):
+            s.add(f'<path d="M {x+16} {y+34+off} C {x+34} {y+12+off}, {x+62} {y+70+off}, {x+86} {y+44+off}" '
+                  f'fill="none" stroke="{col}" stroke-width="3.4" stroke-linecap="round" '
+                  f'filter="url(#{s.f_glow()})"/>')
+        s.text(x + 50, y + 88, "AWG 18/22", size=7.5, fill=MU, anchor="middle", family=MONO)
+    elif kind == "heat":
+        for k, yy in enumerate((y + 28, y + 58)):
+            s.add(f'<rect x="{x+18}" y="{yy}" width="64" height="20" rx="10" '
+                  f'fill="none" stroke="{MG}" stroke-width="1.4" opacity="0.9"/>')
+            for j in range(4):
+                s.line(x + 26 + j * 12, yy + 4, x + 32 + j * 12, yy + 16, MG, 1, )
+        s.text(x + 50, y + 90, "3-8 mm", size=7.5, fill=MU, anchor="middle", family=MONO)
+    elif kind == "imu":
+        s.add(f'<rect x="{x+18}" y="{y+20}" width="64" height="64" rx="4" '
+              f'fill="url(#{s.grad("pcbblue")})" stroke="#1d4b63" stroke-width="1.2"/>')
+        s.add(f'<rect x="{x+38}" y="{y+38}" width="24" height="24" rx="2" fill="#0a0d12" '
+              f'stroke="#2c3746" stroke-width="1"/>')
+        for j in range(4):
+            s.add(f'<rect x="{x+22+j*14}" y="{y+16}" width="6" height="5" fill="url(#{s.grad("gold")})"/>')
+            s.add(f'<rect x="{x+22+j*14}" y="{y+83}" width="6" height="5" fill="url(#{s.grad("gold")})"/>')
+        s.text(x + 50, y + 100, "I2C", size=7.5, fill=MU, anchor="middle", family=MONO)
+
 if __name__ == "__main__":
     wiring()
     pinout()
     layout()
+    bom()

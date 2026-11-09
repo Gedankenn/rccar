@@ -55,11 +55,13 @@ DualShock 4 will not pair (BLE gamepads and ESP-NOW will).
 
 ## Bill of materials
 
+![Bill of materials](images/bom.png)
+
 | Part | Choice | Why |
 |---|---|---|
 | MCU board | ESP32-C3 SuperMini | already chosen; 4 MB flash, USB-JTAG |
 | Motor driver | TB6612FNG breakout | dual H-bridge, 1.2 A cont / 3.2 A peak, 2.7-13.5 V, 3.3 V logic |
-| Motor driver (alt) | DRV8251A or DRV8871 breakout | 4.1 A / 3.6 A peak for a hot 260/370 motor |
+| Motor driver (alt) | DRV8251A breakout | 4.1 A peak for a hot 260/370 motor |
 | Steering servo | existing unit | confirm 4.8-6 V rated; power it from 5 V, not 3.3 V |
 | 5 V rail | MP1584EN or Pololu D24V22F5 buck | servo + ESP32; 2-3 A |
 | Battery | 2S Li-ion 18650 pack (7.4 V) | chosen; needs a 2S BMS and balance charger |
@@ -77,7 +79,7 @@ already in a drawer and the car is a bench test.
 
 ```mermaid
 flowchart LR
-  BAT[2S Li-ion 7.4 V] -->|VM| HB[TB6612 / DRV8871]
+  BAT[2S Li-ion 7.4 V] -->|VM| HB[TB6612 / DRV8251A]
   BAT -->|VIN 6-8.4 V| BUCK[5 V buck 3 A]
   BUCK -->|5 V| ESP[ESP32-C3 SuperMini 5V]
   BUCK -->|5 V| SERVO[Steering servo]
