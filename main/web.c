@@ -109,6 +109,8 @@ static esp_err_t ws_handler(httpd_req_t *req)
         atomic_store(&s_armed, false);
         s_throttle = 0.0f;
         s_steering = 0.0f;
+        motor_set(0.0f);
+        steering_set(0.0f);
         atomic_store(&s_last_cmd_ms, now_ms());
         ESP_LOGI(TAG, "client connected");
         return ESP_OK;
