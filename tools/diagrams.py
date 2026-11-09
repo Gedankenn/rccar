@@ -15,10 +15,11 @@ PANEL = "#08111f"
 CY = "#22e6ff"
 MG = "#ff3ea5"
 LM = "#9dff5a"
-AM = "#ffb020"
+AM = "#ffc93c"
 RD = "#ff4d6d"
 TX = "#d9f6ff"
 MU = "#6c93ad"
+GY = "#c2d3e2"   # ground net: must stay readable on the dark panels
 GOLD = "#f6c76a"
 
 DISPLAY = "Orbitron, Chakra Petch, sans-serif"
@@ -96,7 +97,8 @@ class Svg:
         self._filters.add(name)
         sd = 4.5 if big else 3.0
         self.defs.append(
-            f'<filter id="{name}" x="-60%" y="-60%" width="220%" height="220%">'
+            f'<filter id="{name}" filterUnits="userSpaceOnUse" '
+            f'x="-300" y="-300" width="4200" height="4200">'
             f'<feGaussianBlur stdDeviation="{sd}" result="b"/>'
             '<feMerge><feMergeNode in="b"/><feMergeNode in="b"/>'
             '<feMergeNode in="SourceGraphic"/></feMerge></filter>')
@@ -134,8 +136,11 @@ class Svg:
 
     def wire(self, pts, color=CY, sw=2.6, arrow=False, casing=False, glow=True, dash=None):
         d = "M " + " L ".join(f"{x} {y}" for x, y in pts)
+        # a dark halo keeps every wire readable over PCBs, packs and other wires
+        self.add(f'<path d="{d}" fill="none" stroke="#010307" stroke-width="{sw + 3.2}" '
+                 f'stroke-linejoin="round" stroke-linecap="round" opacity="0.92"/>')
         if casing:
-            self.add(f'<path d="{d}" fill="none" stroke="{BG}" stroke-width="{sw + 6}" '
+            self.add(f'<path d="{d}" fill="none" stroke="{BG}" stroke-width="{sw + 7}" '
                      f'stroke-linejoin="round" stroke-linecap="round"/>')
         if dash:
             dd = f' stroke-dasharray="{dash}"'
@@ -162,10 +167,11 @@ class Svg:
     def dot(self, x, y, color=CY, r=4):
         self.add(f'<circle cx="{x}" cy="{y}" r="{r}" fill="{color}" filter="url(#{self.f_glow()})"/>')
 
-    def gnd(self, x, y, color=MU):
+    def gnd(self, x, y, color=GY):
         self.add(f'<path d="M {x} {y} L {x} {y+8} M {x-14} {y+8} L {x+14} {y+8} '
                  f'M {x-9} {y+14} L {x+9} {y+14} M {x-4} {y+20} L {x+4} {y+20}" '
-                 f'stroke="{color}" stroke-width="2" fill="none"/>')
+                 f'stroke="{color}" stroke-width="2.4" fill="none" '
+                 f'filter="url(#{self.f_glow()})"/>')
 
     # ---------- sheet chrome ----------
     def frame(self):
@@ -279,7 +285,7 @@ class Svg:
             self.add(f'<rect x="{x+w-8}" y="{ty-4}" width="8" height="8" '
                      f'fill="url(#{self.grad("gold")})" stroke="#3a2a08" stroke-width="0.5"/>')
         self.wire([(bx + bw, plus_y), (cx0, plus_y)], RD, 2.2, glow=False)
-        self.wire([(bx + bw, minus_y), (cx0, minus_y)], MU, 2.2, glow=False)
+        self.wire([(bx + bw, minus_y), (cx0, minus_y)], GY, 2.4, glow=True)
 
     def hbridge_module(self, x, y, w, h, pads):
         self.add(f'<rect x="{x}" y="{y}" width="{w}" height="{h}" rx="5" '
@@ -339,7 +345,7 @@ class Svg:
         body_w, body_h = w * 0.52, h * 0.6
         bx, by = x + w * 0.28, y + h * 0.22
         # cable
-        self.wire([(x + 2, y + h * 0.57), (bx, y + h * 0.57)], "#7a4a2a", 2.4, glow=False)
+        self.wire([(x + 2, y + h * 0.57), (bx, y + h * 0.57)], "#e09a5c", 2.6, glow=True)
         # tabs
         self.add(f'<rect x="{bx-10}" y="{by}" width="{body_w+20}" height="8" rx="2" fill="#1c3346" '
                  f'stroke="#2e5670" stroke-width="1"/>')
@@ -415,7 +421,7 @@ class Svg:
                      f'fill="none" stroke="{TX}" stroke-width="1.6"/>')
         self.wire([(node, ytop), (node, ytop + 12)], TX, 2, glow=False)
         self.wire([(node, ytop + 48), (node, ytop + 56)], TX, 2, glow=False)
-        self.gnd(node, ytop + 56, MU)
+        self.gnd(node, ytop + 56, GY)
         self.text((pin_x + node) / 2, ytop - 12, "100k", size=9.5, fill=TX, anchor="middle",
                   family=MONO, spacing="0.5")
         self.text(node + 12, ytop + 30, "47k", size=9.5, fill=TX, family=MONO)
@@ -458,7 +464,7 @@ class Svg:
             self.text(x + 12, y + 4, label, size=9.5, fill=color, anchor="start", family=MONO)
 
     def legend(self, x, y):
-        items = [(RD, "PACK POWER"), (AM, "5 V RAIL"), (CY, "LOGIC / PWM"), (MU, "GROUND")]
+        items = [(RD, "PACK POWER"), (AM, "5 V RAIL"), (CY, "LOGIC / PWM"), (GY, "GROUND")]
         for i, (c, label) in enumerate(items):
             cx = x + i * 150
             self.wire([(cx, y), (cx + 24, y)], c, 2.4, glow=True)
@@ -490,9 +496,9 @@ def wiring():
     s.panel(70, 104, 260, 176, "PACK // 2S", "7.4 V nominal, 8.4 V full")
     s.battery_pack(80, 118, 240, 150, (205, 250))
     s.add(f'<circle cx="320" cy="205" r="4" fill="{RD}" filter="url(#{s.f_glow()})"/>')
-    s.add(f'<circle cx="320" cy="250" r="4" fill="{MU}" filter="url(#{s.f_glow()})"/>')
+    s.add(f'<circle cx="320" cy="250" r="4" fill="{GY}" filter="url(#{s.f_glow()})"/>')
     s.text(338, 198, "BAT +", size=9.5, fill=RD, family=MONO, spacing="0.8")
-    s.text(338, 243, "BAT -", size=9.5, fill=MU, family=MONO, spacing="0.8")
+    s.text(338, 243, "BAT -", size=9.5, fill=GY, family=MONO, spacing="0.8")
 
     # switch
     s.panel(340, 110, 90, 80, "SW", None, AM)
@@ -507,7 +513,7 @@ def wiring():
     s.pout(760, 150, "VM", RD, "left")
     s.pout(760, 210, "VCC", AM, "left")
     s.pout(760, 270, "STBY", AM, "left")
-    s.pout(760, 330, "GND", MU, "left")
+    s.pout(760, 330, "GND", GY, "left")
     s.pout(880, 400, "AIN1", CY, "bottom")
     s.pout(950, 400, "AIN2", CY, "bottom")
     s.pout(1090, 180, "AO1", RD, "right")
@@ -524,9 +530,9 @@ def wiring():
     s.buck_module(520, 580, 280, 140, [(520, 600, "left"), (520, 660, "left"),
                                        (800, 600, "right"), (800, 660, "right")])
     s.pout(520, 600, "IN+", RD, "left")
-    s.pout(520, 660, "IN-", MU, "left")
+    s.pout(520, 660, "IN-", GY, "left")
     s.pout(800, 600, "5V", AM, "right")
-    s.pout(800, 660, "GND", MU, "right")
+    s.pout(800, 660, "GND", GY, "right")
 
     # ---------- ESP board ----------
     s.esp_board(900, 560, 180, 320,
@@ -534,15 +540,16 @@ def wiring():
                 pad_r=[600, 636, 672, 708, 744, 780, 816, 852])
     s.text(900, 546, "ESP32-C3 // SUPERMINI", size=10.5, fill=CY, family=MONO, spacing="1.2")
     s.pout(900, 600, "5V", AM, "left")
-    s.pout(900, 636, "GND", MU, "left")
+    s.pout(900, 636, "GND", GY, "left")
     s.pout(900, 852, "GPIO0", LM, "left")
     s.pout(1080, 600, "GPIO5", CY, "right")
 
     # ---------- servo ----------
     s.panel(1320, 612, 250, 178, "SERVO", "steering, 50 Hz")
     s.servo(1330, 640, 230, 140)
-    s.pin_inside(1330, 720, "SIG", CY)
-    s.pin_inside(1330, 760, "GND", MU)
+    s.add(f'<circle cx="1330" cy="720" r="4" fill="{CY}" filter="url(#{s.f_glow()})"/>')
+    s.text(1342, 740, "SIG", size=9.5, fill=CY, family=MONO)
+    s.pin_inside(1330, 760, "GND", GY)
     s.pin_inside(1370, 780, "V+", AM, "bottom")
 
     # ---------- divider ----------
@@ -567,10 +574,10 @@ def wiring():
     s.wire([(380, 380), (430, 380), (430, 852), (900, 852)], LM, arrow=True, casing=True)
     s.text(470, 844, "VBAT / 3.13 -> GPIO0", size=9, fill=LM, family=MONO, spacing="0.6")
 
-    s.wire([(520, 660), (500, 660), (500, 700)], MU, arrow=False)
-    s.gnd(500, 700, MU)
-    s.wire([(320, 250), (360, 250)], MU, arrow=False)
-    s.gnd(360, 250, MU)
+    s.wire([(520, 660), (500, 660), (500, 700)], GY, arrow=False)
+    s.gnd(500, 700, GY)
+    s.wire([(320, 250), (360, 250)], GY, arrow=False)
+    s.gnd(360, 250, GY)
 
     # 5 V rails
     s.wire([(800, 600), (900, 600)], AM, arrow=True)
@@ -580,14 +587,14 @@ def wiring():
     s.dot(700, 270, AM, 3.5)
     s.wire([(810, 600), (810, 940), (1370, 940), (1370, 780)], AM, arrow=True)
 
-    s.wire([(800, 660), (812, 660), (812, 700)], MU, arrow=False)
-    s.gnd(812, 700, MU)
-    s.wire([(900, 636), (885, 636), (885, 680)], MU, arrow=False)
-    s.gnd(885, 680, MU)
-    s.wire([(760, 330), (740, 330), (740, 380)], MU, arrow=False)
-    s.gnd(740, 380, MU)
-    s.wire([(1330, 760), (1315, 760), (1315, 820)], MU, arrow=False)
-    s.gnd(1315, 820, MU)
+    s.wire([(800, 660), (812, 660), (812, 700)], GY, arrow=False)
+    s.gnd(812, 700, GY)
+    s.wire([(900, 636), (885, 636), (885, 680)], GY, arrow=False)
+    s.gnd(885, 680, GY)
+    s.wire([(760, 330), (740, 330), (740, 380)], GY, arrow=False)
+    s.gnd(740, 380, GY)
+    s.wire([(1330, 760), (1315, 760), (1315, 820)], GY, arrow=False)
+    s.gnd(1315, 820, GY)
 
     # ---------- signals ----------
     s.wire([(900, 744), (860, 744), (860, 430), (880, 430), (880, 400)], CY, arrow=True)
@@ -617,7 +624,7 @@ def pinout():
 
     left = [
         ("5V", AM, "from the 5 V buck"),
-        ("GND", MU, "common ground"),
+        ("GND", GY, "common ground"),
         ("3V3", MG, "not used"),
         ("GPIO4", CY, "H-bridge IN2"),
         ("GPIO3", CY, "H-bridge IN1"),
