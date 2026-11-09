@@ -259,19 +259,27 @@ class Svg:
         for py in pad_r:
             self.pad(x + w, py, "right")
 
-    def battery_pack(self, x, y, w, h):
-        cw = w * 0.34
-        ch = h * 0.7
-        cy = y + h * 0.1
-        for cx in (x + w * 0.04, x + w * 0.04 + cw + 10):
-            self.add(f'<rect x="{cx}" y="{cy}" width="{cw}" height="{ch}" rx="{cw/2}" '
-                     f'fill="url(#{self.grad("cellred")})" stroke="#3d0a12" stroke-width="1"/>')
-            self.add(f'<rect x="{cx+cw*0.18}" y="{cy+4}" width="{cw*0.64}" height="{ch-8}" '
-                     f'rx="{cw*0.32}" fill="none" stroke="#ff8a96" stroke-width="0.8" opacity="0.5"/>')
-            self.add(f'<rect x="{cx+cw*0.36}" y="{cy-5}" width="{cw*0.28}" height="7" rx="2" '
-                     f'fill="url(#{self.grad("metal")})" stroke="#3c4756" stroke-width="0.8"/>')
-        self.text(x + w * 0.37, cy + ch + 15, "18650  ·  7.4 V", size=9, fill="#ffd7dc",
+    def battery_pack(self, x, y, w, h, pin_ys=None):
+        plus_y, minus_y = pin_ys or (y + h * 0.42, y + h * 0.64)
+        bw = w * 0.58
+        bx, by, bh = x + 14, y + 26, h * 0.72
+        self.add(f'<rect x="{bx}" y="{by}" width="{bw}" height="{bh}" rx="10" '
+                 f'fill="url(#{self.grad("cellred")})" stroke="#3d0a12" stroke-width="1.2"/>')
+        self.add(f'<rect x="{bx+10}" y="{by+10}" width="{bw-20}" height="{bh-20}" rx="7" '
+                 f'fill="none" stroke="#ff8a96" stroke-width="0.8" opacity="0.45"/>')
+        self.text(bx + bw / 2, by + bh * 0.34, "2S 18650", size=10, fill="#ffe3e7",
                   anchor="middle", family=MONO, spacing="1.2")
+        self.text(bx + bw / 2, by + bh * 0.5, "7.4 V", size=10, fill="#ffe3e7",
+                  anchor="middle", family=MONO, spacing="1.2")
+        cx0 = x + w - 34
+        self.add(f'<rect x="{cx0}" y="{plus_y-14}" width="34" height="{minus_y-plus_y+28}" rx="4" '
+                 f'fill="#e8edf2" stroke="#9aa7b6" stroke-width="1"/>')
+        for ty in (plus_y, minus_y):
+            self.add(f'<rect x="{cx0+6}" y="{ty-6}" width="14" height="12" rx="2" fill="#1a2029"/>')
+            self.add(f'<rect x="{x+w-8}" y="{ty-4}" width="8" height="8" '
+                     f'fill="url(#{self.grad("gold")})" stroke="#3a2a08" stroke-width="0.5"/>')
+        self.wire([(bx + bw, plus_y), (cx0, plus_y)], RD, 2.2, glow=False)
+        self.wire([(bx + bw, minus_y), (cx0, minus_y)], MU, 2.2, glow=False)
 
     def hbridge_module(self, x, y, w, h, pads):
         self.add(f'<rect x="{x}" y="{y}" width="{w}" height="{h}" rx="5" '
@@ -331,7 +339,7 @@ class Svg:
         body_w, body_h = w * 0.52, h * 0.6
         bx, by = x + w * 0.28, y + h * 0.22
         # cable
-        self.wire([(x + w * 0.06, y + h * 0.42), (bx, y + h * 0.42)], "#7a4a2a", 2, glow=False)
+        self.wire([(x + 2, y + h * 0.57), (bx, y + h * 0.57)], "#7a4a2a", 2.4, glow=False)
         # tabs
         self.add(f'<rect x="{bx-10}" y="{by}" width="{body_w+20}" height="8" rx="2" fill="#1c3346" '
                  f'stroke="#2e5670" stroke-width="1"/>')
@@ -351,24 +359,37 @@ class Svg:
         self.add(f'<rect x="{hx-3}" y="{hy-w*0.16}" width="6" height="{w*0.16}" rx="2" fill="#dfe8f3"/>')
         self.add(f'<rect x="{hx-3}" y="{hy}" width="{w*0.14}" height="6" rx="2" fill="#dfe8f3"/>')
 
-    def motor(self, x, y, w, h):
-        cy = y + h * 0.5
-        r = h * 0.3
-        # can
-        self.add(f'<rect x="{x+w*0.06}" y="{cy-r}" width="{w*0.62}" height="{r*2}" rx="{r}" '
+    def motor(self, x, y, w, h, terms=None):
+        if terms:
+            t0, t1 = min(terms), max(terms)
+            top, bot = t0 - 26, t1 + 26
+            cy = (top + bot) / 2
+            r = (bot - top) / 2
+            body_x = x + 26
+        else:
+            cy = y + h * 0.5
+            r = h * 0.34
+            top, bot = cy - r, cy + r
+            body_x = x + w * 0.08
+        body_w = w * 0.6
+        self.add(f'<rect x="{body_x}" y="{top}" width="{body_w}" height="{bot-top}" rx="{r}" '
                  f'fill="url(#{self.grad("metal")})" stroke="#3c4756" stroke-width="1.2"/>')
-        for i in range(7):
-            self.add(f'<line x1="{x+w*0.1+i*w*0.08}" y1="{cy-r+4}" x2="{x+w*0.1+i*w*0.08}" y2="{cy+r-4}" '
-                     f'stroke="#6b7684" stroke-width="0.8" opacity="0.5"/>')
-        self.add(f'<rect x="{x+w*0.02}" y="{cy-r*0.55}" width="{w*0.06}" height="{r*1.1}" rx="3" '
-                 f'fill="#0a0d12" stroke="#3c4756" stroke-width="1"/>')
+        for i in range(6):
+            self.add(f'<line x1="{body_x+10+i*(body_w-20)/6}" y1="{top+6}" '
+                     f'x2="{body_x+10+i*(body_w-20)/6}" y2="{bot-6}" stroke="#6b7684" '
+                     f'stroke-width="0.8" opacity="0.45"/>')
         # shaft
-        self.add(f'<rect x="{x+w*0.68}" y="{cy-r*0.16}" width="{w*0.22}" height="{r*0.32}" rx="3" '
-                 f'fill="url(#{self.grad("metal")})" stroke="#3c4756" stroke-width="0.8"/>')
-        # terminals
-        for ty in (cy - r * 0.5, cy + r * 0.5):
-            self.add(f'<rect x="{x+w*0.14}" y="{ty-4}" width="10" height="8" rx="1.5" fill="{GOLD}"/>')
-        self.text(x + w * 0.36, cy + r + 16, "BRUSHED DC", size=8, fill=MU,
+        self.add(f'<rect x="{body_x+body_w-6}" y="{cy-r*0.18}" width="{w*0.2}" height="{r*0.36}" '
+                 f'rx="3" fill="url(#{self.grad("metal")})" stroke="#3c4756" stroke-width="0.8"/>')
+        # terminals at the requested y
+        if terms:
+            for ty in terms:
+                self.add(f'<rect x="{x}" y="{ty-5}" width="{body_x-x}" height="10" rx="2" '
+                         f'fill="{GOLD}" stroke="#3a2a08" stroke-width="0.6"/>')
+        else:
+            for ty in (cy - r * 0.5, cy + r * 0.5):
+                self.add(f'<rect x="{x+w*0.1}" y="{ty-4}" width="10" height="8" rx="1.5" fill="{GOLD}"/>')
+        self.text(body_x + body_w / 2, bot + 16, "BRUSHED DC", size=8, fill=MU,
                   anchor="middle", family=MONO, spacing="1")
 
     def rocker(self, x, y, w, h):
@@ -383,11 +404,11 @@ class Svg:
         """100k from IN to node, 47k node to GND, node to OUT (ADC tap)."""
         ytop = y + 38
         node = x + 150
-        self.wire([(x + w - 6, ytop), (node + 92, ytop)], RD, 2, glow=False)
-        self.zigzag(node + 92, ytop, 92, 7)
+        pin_x = x + w  # 380
+        # 100k zigzag from the IN pin to the node
+        self.zigzag(pin_x, ytop, node + 8 - pin_x, 7)
         self.wire([(node, ytop), (node + 8, ytop)], TX, 2, glow=False)
         self.dot(node, ytop, TX, 3)
-        # 47k down
         for i in range(4):
             yy = ytop + 12 + i * 9
             self.add(f'<path d="M {node-7} {yy} L {node+7} {yy+4.5} L {node-7} {yy+9}" '
@@ -395,12 +416,11 @@ class Svg:
         self.wire([(node, ytop), (node, ytop + 12)], TX, 2, glow=False)
         self.wire([(node, ytop + 48), (node, ytop + 56)], TX, 2, glow=False)
         self.gnd(node, ytop + 56, MU)
-        self.text(node + 46, ytop - 8, "100k", size=9.5, fill=TX, anchor="middle",
+        self.text((pin_x + node) / 2, ytop - 12, "100k", size=9.5, fill=TX, anchor="middle",
                   family=MONO, spacing="0.5")
         self.text(node + 12, ytop + 30, "47k", size=9.5, fill=TX, family=MONO)
-        # tap to OUT
         self.wire([(node, ytop), (node + 40, ytop), (node + 40, ytop + 40),
-                   (x + w - 6, ytop + 40)], LM, 2, glow=False)
+                   (pin_x, ytop + 40)], LM, 2, glow=False)
         self.text(x + 8, y + h - 6, "3.13:1  ->  GPIO0", size=8.5, fill=LM,
                   family=MONO, spacing="0.4")
 
@@ -467,14 +487,16 @@ def wiring():
     s.legend(1020, 70)
 
     # ---------- battery ----------
-    s.panel(70, 104, 260, 164, "PACK // 2S", "7.4 V nominal, 8.4 V full")
-    s.battery_pack(80, 124, 240, 124)
-    s.pin_in(320, 215, "BAT +", RD)
-    s.pin_in(320, 255, "BAT -", MU)
+    s.panel(70, 104, 260, 176, "PACK // 2S", "7.4 V nominal, 8.4 V full")
+    s.battery_pack(80, 118, 240, 150, (205, 250))
+    s.add(f'<circle cx="320" cy="205" r="4" fill="{RD}" filter="url(#{s.f_glow()})"/>')
+    s.add(f'<circle cx="320" cy="250" r="4" fill="{MU}" filter="url(#{s.f_glow()})"/>')
+    s.text(338, 198, "BAT +", size=9.5, fill=RD, family=MONO, spacing="0.8")
+    s.text(338, 243, "BAT -", size=9.5, fill=MU, family=MONO, spacing="0.8")
 
     # switch
-    s.panel(340, 120, 90, 80, "SW", None, AM)
-    s.rocker(352, 145, 62, 36)
+    s.panel(340, 110, 90, 80, "SW", None, AM)
+    s.rocker(352, 138, 62, 44)
 
     # ---------- H-bridge ----------
     s.panel(748, 100, 352, 300, "H-BRIDGE", "TB6612FNG  /  DRV8251A")
@@ -493,7 +515,7 @@ def wiring():
 
     # ---------- motor ----------
     s.panel(1170, 112, 320, 168, "MOTOR", "brushed DC, gearbox side")
-    s.motor(1185, 150, 290, 100)
+    s.motor(1185, 150, 290, 100, terms=[180, 250])
     s.pout(1180, 180, "M+", RD, "left")
     s.pout(1180, 250, "M-", RD, "left")
 
@@ -524,13 +546,13 @@ def wiring():
     s.pin_inside(1370, 780, "V+", AM, "bottom")
 
     # ---------- divider ----------
-    s.panel(70, 292, 320, 126, "SENSE DIVIDER", "pack voltage -> ADC")
+    s.panel(70, 298, 320, 124, "SENSE DIVIDER", "pack voltage -> ADC")
     s.divider(80, 300, 300, 112)
     s.pout(380, 340, "IN", RD, "right")
     s.pout(380, 380, "OUT", LM, "right")
 
     # ---------- power wiring ----------
-    s.wire([(320, 215), (335, 215), (335, 160), (350, 160)], RD)
+    s.wire([(320, 205), (335, 205), (335, 160), (350, 160)], RD)
     s.wire([(410, 160), (450, 160)], RD)
     s.wire([(450, 150), (450, 600), (520, 600)], RD, arrow=False)
     s.wire([(450, 150), (760, 150)], RD, arrow=True)
@@ -547,16 +569,16 @@ def wiring():
 
     s.wire([(520, 660), (500, 660), (500, 700)], MU, arrow=False)
     s.gnd(500, 700, MU)
-    s.wire([(320, 255), (360, 255), (360, 285)], MU, arrow=False)
-    s.gnd(360, 285, MU)
+    s.wire([(320, 250), (360, 250)], MU, arrow=False)
+    s.gnd(360, 250, MU)
 
     # 5 V rails
     s.wire([(800, 600), (900, 600)], AM, arrow=True)
-    s.dot(825, 600, AM, 3.5)
-    s.wire([(825, 600), (825, 450), (700, 450), (700, 210), (760, 210)], AM, arrow=False)
+    s.dot(810, 600, AM, 3.5)
+    s.wire([(810, 600), (810, 450), (700, 450), (700, 210), (760, 210)], AM, arrow=False)
     s.wire([(700, 270), (760, 270)], AM, arrow=True)
     s.dot(700, 270, AM, 3.5)
-    s.wire([(825, 600), (825, 940), (1370, 940), (1370, 780)], AM, arrow=True)
+    s.wire([(810, 600), (810, 940), (1370, 940), (1370, 780)], AM, arrow=True)
 
     s.wire([(800, 660), (812, 660), (812, 700)], MU, arrow=False)
     s.gnd(812, 700, MU)
@@ -568,8 +590,9 @@ def wiring():
     s.gnd(1315, 820, MU)
 
     # ---------- signals ----------
-    s.wire([(900, 744), (875, 744), (875, 430), (880, 430), (880, 400)], CY, arrow=True)
-    s.wire([(900, 708), (855, 708), (855, 455), (950, 455), (950, 400)], CY, arrow=True)
+    s.wire([(900, 744), (860, 744), (860, 430), (880, 430), (880, 400)], CY, arrow=True)
+    s.wire([(900, 708), (840, 708), (840, 455), (950, 455), (950, 400)], CY, arrow=True,
+           casing=True)
     s.wire([(1080, 600), (1100, 600), (1100, 720), (1330, 720)], CY, arrow=True)
 
     s.wire([(1090, 180), (1180, 180)], RD, arrow=True)
@@ -693,8 +716,8 @@ def layout():
 
     # pack power
     s.wire([(560, 462), (560, 378)], RD, arrow=False, glow=True)
-    s.wire([(620, 682), (620, 744), (798, 744)], RD, arrow=False, glow=True)
-    s.text(628, 736, "PACK +", size=8, fill=RD, family=MONO, spacing="1")
+    s.wire([(775, 559), (820, 559), (820, 724)], RD, arrow=False, glow=True)
+    s.text(826, 626, "PACK +", size=8, fill=RD, family=MONO, spacing="1")
     s.wire([(902, 744), (950, 744), (950, 420)], RD, arrow=False, glow=True)
 
     # signals
