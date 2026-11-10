@@ -5,14 +5,19 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <title>rccar</title>
 <style>
+  /* House tokens (CATHODE round, 2026-11-10). Numbers are rounded sans,
+     text stays mono; no pixel face, no bundled font (client-side stack). */
   :root {
-    --bg: #0b0d10; --fg: #e6edf3; --dim: #6b7684; --line: #1f242b;
-    --ok: #39d353; --warn: #f0883e; --bad: #f85149;
+    --bg: #06070c; --panel: #0c1018; --fg: #ddf6ff; --dim: #8b9fb3; --line: #1b2433;
+    --line-hi: #2c3a50;
+    --cy: #22e8ff; --ok: #9cff4a; --warn: #ffc24a; --bad: #ff4d5e;
+    --num: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   }
   * { box-sizing: border-box; }
   html, body {
     margin: 0; height: 100%; background: var(--bg); color: var(--fg);
     font: 13px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace;
+    -webkit-font-smoothing: antialiased;
     overscroll-behavior: none; touch-action: none; user-select: none;
   }
   body { display: flex; flex-direction: column; }
@@ -23,41 +28,48 @@
   header .title { font-weight: 700; letter-spacing: .08em; }
   header .spacer { flex: 1; }
   .chip {
-    padding: 2px 8px; border: 1px solid var(--line); border-radius: 4px;
+    padding: 3px 9px; border: 1px solid var(--line); border-radius: 6px;
     color: var(--dim);
   }
-  .chip b { color: var(--fg); font-weight: 600; }
+  .chip b { color: var(--fg); font-weight: 600; font-family: var(--num);
+            font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
   #link.on { color: var(--ok); border-color: var(--ok); }
-  #arm.armed { color: #0b0d10; background: var(--warn); border-color: var(--warn); }
+  #arm.armed { color: var(--bg); background: var(--warn); border-color: var(--warn); }
   main {
     flex: 1; display: grid; grid-template-columns: 1fr 200px; gap: 12px;
     padding: 12px; min-height: 0;
   }
   #pad {
-    position: relative; border: 1px solid var(--line); border-radius: 8px;
+    position: relative; border: 1px solid var(--line); border-radius: 10px;
     background:
       linear-gradient(var(--line) 1px, transparent 1px) 0 50% / 100% 1px no-repeat,
-      linear-gradient(90deg, var(--line) 1px, transparent 1px) 50% 0 / 1px 100% no-repeat;
+      linear-gradient(90deg, var(--line) 1px, transparent 1px) 50% 0 / 1px 100% no-repeat,
+      var(--panel);
     overflow: hidden; cursor: crosshair;
   }
   #knob {
-    position: absolute; width: 56px; height: 56px; margin: -28px 0 0 -28px;
-    left: 50%; top: 50%; border: 1px solid var(--dim); border-radius: 50%;
-    background: rgba(57, 211, 83, .12); pointer-events: none;
+    position: absolute; width: 58px; height: 58px; margin: -29px 0 0 -29px;
+    left: 50%; top: 50%; border: 1px solid var(--line-hi); border-radius: 50%;
+    background: rgba(34, 232, 255, .10); pointer-events: none;
+    box-shadow: 0 0 14px rgba(34, 232, 255, .22);
   }
-  #pad.armed #knob { border-color: var(--warn); background: rgba(240, 136, 62, .12); }
+  #pad.armed #knob { border-color: var(--warn); background: rgba(255, 194, 74, .12);
+                     box-shadow: 0 0 14px rgba(255, 194, 74, .25); }
   aside { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
-  .row { display: flex; justify-content: space-between; gap: 8px; }
-  .row span:first-child { color: var(--dim); }
-  .row output { font-variant-numeric: tabular-nums; }
+  .row { display: flex; justify-content: space-between; align-items: baseline; gap: 8px;
+         padding: 4px 0; border-bottom: 1px solid rgba(27, 36, 51, .7); }
+  .row span:first-child { color: var(--dim); font-size: 11px; letter-spacing: .06em;
+                          text-transform: uppercase; }
+  .row output { font-family: var(--num); font-weight: 700; font-size: 17px;
+                font-variant-numeric: tabular-nums; letter-spacing: -.02em; color: var(--fg); }
   button {
-    font: inherit; padding: 10px; background: transparent; color: var(--fg);
-    border: 1px solid var(--line); border-radius: 6px; cursor: pointer;
+    font: inherit; padding: 10px; background: var(--panel); color: var(--fg);
+    border: 1px solid var(--line); border-radius: 8px; cursor: pointer;
   }
   button:active { background: var(--line); }
   button:disabled { opacity: .6; cursor: not-allowed; }
   #arm { border-color: var(--warn); color: var(--warn); font-weight: 700; }
-  #arm.armed { color: #0b0d10; }
+  #arm.armed { color: var(--bg); }
   .hint { color: var(--dim); font-size: 12px; line-height: 1.6; }
   @media (max-width: 640px) {
     main { grid-template-columns: 1fr; grid-template-rows: 1fr auto; }
